@@ -22,10 +22,10 @@ app = FastAPI(title="LangGraph Dev-Test Crew API")
 # ==========================================
 # On Render, set GEMINI_API_KEY as an Environment Variable
 # (Dashboard -> your service -> Environment).
-api_key = os.environ.get("GEMINI_API_KEY")
+api_key = os.environ.get("GOOGLE_API_KEY")
 
 if not api_key:
-    print("WARNING: GEMINI_API_KEY environment variable not set.")
+    print("WARNING: GOOGLE_API_KEY environment variable not set.")
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-1.5-flash",  # use a real, currently-available model name
