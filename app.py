@@ -91,7 +91,7 @@ def real_time_developer(state: CrewState):
     task = state["messages"][-1].content
 
     prompt = (
-        f"Write a clean Python script to solve this: {task}. "
+        f"Write a clean Python script to solve this: {task}\n. "
         "Return ONLY the code with no explanation."
         "Do not include explanations, markdown, comments, or any extra text."
     )
