@@ -4,7 +4,8 @@ import io
 import traceback
 from typing import TypedDict, List, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.tools import tool
@@ -14,26 +15,25 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 # ==========================================
 # 1. LLM INITIALIZATION
 # ==========================================
-# On Render, set GEMINI_API_KEY as an Environment Variable
-# (Dashboard -> your service -> Environment) instead of Colab userdata.
-api_key = os.environ.get("GOOGLE_API_KEY")
-
+# On Render, set GOOGLE_API_KEY as an environment variable in the
+# service's "Environment" tab -- do NOT hardcode it here.
+api_key = os.environ.get("GOOGLE_API")
 if not api_key:
-    print("WARNING: GOOGLE_API_KEY environment variable not set.")
+    raise RuntimeError(
+        "GOOGLE_API_KEY environment variable is not set. "
+        "Add it in the Render dashboard under Environment."
+    )
 
-llm_flash = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key)
+llm_flash = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", google_api_key=api_key)
 llm = llm_flash
-
 
 # ==========================================
 # 2. STATE DEFINITION
 # ==========================================
 class CrewState(TypedDict):
     messages: List[BaseMessage]
-    next_step: Optional[str]
     code: Optional[str]
     report: Optional[str]
-
 
 # ==========================================
 # 3. TOOLS
@@ -43,7 +43,7 @@ def run_python_code(code: str) -> str:
     """Execute python code and return the standard output or error trace."""
     if not isinstance(code, str):
         code = str(code)
-    clean_code = code.replace("```python", "").replace("```", "").strip()
+    clean_code = code.replace("python", "").replace("", "").strip()
 
     old_stdout = sys.stdout
     new_stdout = io.StringIO()
@@ -72,26 +72,21 @@ def generate_test_cases(task_description: str) -> str:
     response = llm.invoke(prompt)
     return response.content if hasattr(response, "content") else str(response)
 
-
 # ==========================================
 # 4. GRAPH NODES
-# (input()-based nodes from the notebook are replaced with non-interactive
-#  versions, since a web server has no terminal to read from)
 # ==========================================
 def real_time_developer(state: CrewState):
     task = state["messages"][-1].content
-    dev_prompt = f"Write a clean Python script to solve this: {task}. Only return the code, no explanation or markdown formatting."
-
-    if llm_flash is None:
-        raise ValueError("LLM is not initialized. Please set up 'llm_flash'.")
-
+    dev_prompt = (
+        f"Write a clean Python script to solve this: {task}. "
+        f"Only return the code, no explanation or markdown formatting."
+    )
     response = llm_flash.invoke(dev_prompt)
     content = response.content
     if isinstance(content, list):
         code_str = content[0].get("text", "") if isinstance(content[0], dict) else str(content[0])
     else:
         code_str = str(content)
-
     return {"code": code_str}
 
 
@@ -107,43 +102,49 @@ def real_time_tester(state: CrewState):
 
     execution_result = run_python_code.invoke({"code": state["code"]})
 
-    report = f"### EXECUTION OUTPUT:\n{execution_result}\n\n### TEST SCENARIOS EVALUATED:\n{cases_str}"
+    report = (
+        f"### EXECUTION OUTPUT:\n{execution_result}\n\n"
+        f"### TEST SCENARIOS EVALUATED:\n{cases_str}"
+    )
     return {"report": report}
 
-
 # ==========================================
-# 5. GRAPH CONSTRUCTION
-# (task_input / manager_decision / archiver nodes removed — those relied on
-#  input() to loop interactively, which a stateless HTTP request can't do)
+# 5. GRAPH CONSTRUCTION (linear: developer -> tester)
 # ==========================================
 rt_workflow = StateGraph(CrewState)
 rt_workflow.add_node("developer", real_time_developer)
 rt_workflow.add_node("tester", real_time_tester)
-
 rt_workflow.add_edge(START, "developer")
 rt_workflow.add_edge("developer", "tester")
 rt_workflow.add_edge("tester", END)
-
 rt_app = rt_workflow.compile()
-print("Interactive pipeline compiled and ready for live execution.")
-
 
 # ==========================================
-# 6. WEB SERVER
-# (the only addition not in your original code — required so Render
-#  has something to route HTTP requests to)
+# 6. WEB SERVICE (FastAPI)
 # ==========================================
-app = FastAPI()
+app = FastAPI(title="LangGraph Dev-Test Crew API")
+
+
+class TaskRequest(BaseModel):
+    task: str
+
+
+class TaskResponse(BaseModel):
+    code: str
+    report: str
 
 
 @app.get("/")
-def health():
+def health_check():
+    """Render pings this to confirm the service is alive."""
     return {"status": "ok"}
 
 
-@app.post("/run-task")
-async def run_task(request: Request):
-    body = await request.json()
-    task = body.get("task", "")
-    result = rt_app.invoke({"messages": [HumanMessage(content=task)]}, config={"recursion_limit": 50})
-    return {"code": result.get("code"), "report": result.get("report")}
+@app.post("/run-task", response_model=TaskResponse)
+def run_task(payload: TaskRequest):
+    if not payload.task.strip():
+        raise HTTPException(status_code=400, detail="task cannot be empty.")
+
+    initial_state = {"messages": [HumanMessage(content=payload.task)]}
+    result = rt_app.invoke(initial_state, config={"recursion_limit": 50})
+    return {"code": result.get("code", ""), "report": result.get("report", "")}
