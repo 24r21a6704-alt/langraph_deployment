@@ -77,6 +77,7 @@ def generate_test_cases(task_description: str) -> str:
         "You are a Senior QA Engineer. Generate 3 to 5 highly specific "
         f"test scenarios for the following coding task: {task_description}. "
         "Include edge cases and return them as a numbered list."
+        "Dont give our own information give the content present in the given prompt only."
     )
 
     response = llm.invoke(prompt)
@@ -92,6 +93,7 @@ def real_time_developer(state: CrewState):
     prompt = (
         f"Write a clean Python script to solve this: {task}. "
         "Return ONLY the code with no explanation."
+        "Dont give our own information give the content present in the given prompt only."
     )
 
     response = llm_flash.invoke(prompt)
