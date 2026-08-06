@@ -124,26 +124,23 @@ rt_app = rt_workflow.compile()
 # ==========================================
 app = FastAPI(title="LangGraph Dev-Test Crew API")
 
-
 class TaskRequest(BaseModel):
     task: str
-
 
 class TaskResponse(BaseModel):
     code: str
     report: str
 
-
 @app.get("/")
 def health_check():
-    """Render pings this to confirm the service is alive."""
     return {"status": "ok"}
-    @app.get("/agent/playground")
+
+# Add this route here
+@app.get("/agent/playground")
 def agent_playground():
     return {
         "message": "Use POST /run-task or open /docs for the API playground."
     }
-
 
 @app.post("/run-task", response_model=TaskResponse)
 def run_task(payload: TaskRequest):
@@ -152,4 +149,8 @@ def run_task(payload: TaskRequest):
 
     initial_state = {"messages": [HumanMessage(content=payload.task)]}
     result = rt_app.invoke(initial_state, config={"recursion_limit": 50})
-    return {"code": result.get("code", ""), "report": result.get("report", "")}
+
+    return {
+        "code": result.get("code", ""),
+        "report": result.get("report", "")
+    }
