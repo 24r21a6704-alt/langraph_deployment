@@ -138,6 +138,11 @@ class TaskResponse(BaseModel):
 def health_check():
     """Render pings this to confirm the service is alive."""
     return {"status": "ok"}
+    @app.get("/agent/playground")
+def agent_playground():
+    return {
+        "message": "Use POST /run-task or open /docs for the API playground."
+    }
 
 
 @app.post("/run-task", response_model=TaskResponse)
