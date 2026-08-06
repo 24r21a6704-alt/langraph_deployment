@@ -16,10 +16,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 # ==========================================
 # On Render, set GEMINI_API_KEY as an Environment Variable
 # (Dashboard -> your service -> Environment) instead of Colab userdata.
-api_key = os.environ.get("GEMINI_API_KEY")
+api_key = os.environ.get("GOOGLE_API_KEY")
 
 if not api_key:
-    print("WARNING: GEMINI_API_KEY environment variable not set.")
+    print("WARNING: GOOGLE_API_KEY environment variable not set.")
 
 llm_flash = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key)
 llm = llm_flash
