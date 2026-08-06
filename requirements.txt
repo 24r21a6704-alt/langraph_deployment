@@ -1,6 +1,7 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.6
-langchain>=0.3.1
-langchain-core>=0.3.6
-langgraph>=0.2.28
-langchain-google-genai>=2.0.1
+fastapi
+uvicorn[standard]
+pydantic
+langchain-core
+langgraph
+langchain-google-genai
+google-generativeai
