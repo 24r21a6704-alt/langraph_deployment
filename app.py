@@ -17,7 +17,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 # ==========================================
 # On Render, set GOOGLE_API_KEY as an environment variable in the
 # service's "Environment" tab -- do NOT hardcode it here.
-api_key = os.environ.get("GOOGLE_API")
+api_key = os.environ.get("GOOGLE_API_KEY")
 if not api_key:
     raise RuntimeError(
         "GOOGLE_API_KEY environment variable is not set. "
